@@ -65,6 +65,16 @@ bool ahocorasick_state_add_keyword(ahocorasick_t *ahocorasick, size_t state, cha
 	return ahocorasick_state_add_keyword(ahocorasick, STATE_GET(ahocorasick, state).childs[(uint8_t)str[0]], str + 1, len - 1, output);
 }
 
+bool ahocorasick_init(ahocorasick_t *ahocorasick) {
+	if(!ahocorasick) {
+		return false;
+	}
+	
+	memset(ahocorasick, 0, sizeof(*ahocorasick));
+	
+	return true;
+}
+
 bool ahocorasick_add_keyword(ahocorasick_t *ahocorasick, char *str, size_t len, size_t output) {
 	if(!ahocorasick || !str) {
 		return false;
@@ -136,7 +146,7 @@ bool ahocorasick_finalize(ahocorasick_t *ahocorasick) {
 	return true;
 }
 
-void ahocorasick_clean(ahocorasick_t *ahocorasick) {
+bool ahocorasick_clean(ahocorasick_t *ahocorasick) {
 	size_t i;
 	for(i = 0; i < ahocorasick->state_array_count; i++) {
 		if(STATE_GET(ahocorasick, i).output_array) {
@@ -148,6 +158,8 @@ void ahocorasick_clean(ahocorasick_t *ahocorasick) {
 	free(ahocorasick->state_array);
 	ahocorasick->state_array_count = 0;
 	ahocorasick->state_array_size = 0;
+	
+	return ahocorasick_init(ahocorasick);
 }
 
 bool ahocorasick_to_dot(ahocorasick_t *ahocorasick, FILE *f) {

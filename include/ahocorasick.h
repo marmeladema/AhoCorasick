@@ -19,9 +19,10 @@ typedef struct ahocorasick_s {
 	size_t state_array_size;
 } ahocorasick_t;
 
+bool ahocorasick_init(ahocorasick_t *ahocorasick);
 bool ahocorasick_add_keyword(ahocorasick_t *ahocorasick, char *str, size_t len, size_t output);
 bool ahocorasick_finalize(ahocorasick_t *ahocorasick);
-void ahocorasick_clean(ahocorasick_t *ahocorasick);
+bool ahocorasick_clean(ahocorasick_t *ahocorasick);
 
 bool ahocorasick_to_dot(ahocorasick_t *ahocorasick, FILE *f);
 
