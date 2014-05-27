@@ -46,7 +46,7 @@ bool ahocorasick_state_add_output(ahocorasick_t *ahocorasick, size_t state, size
 	return true;
 }
 
-bool ahocorasick_state_add_keyword(ahocorasick_t *ahocorasick, size_t state, char *str, size_t len, size_t output) {
+bool ahocorasick_state_add_keyword(ahocorasick_t *ahocorasick, size_t state, const char *str, size_t len, size_t output) {
 	if(!ahocorasick) {
 		return false;
 	}
@@ -75,7 +75,7 @@ bool ahocorasick_init(ahocorasick_t *ahocorasick) {
 	return true;
 }
 
-bool ahocorasick_add_keyword(ahocorasick_t *ahocorasick, char *str, size_t len, size_t output) {
+bool ahocorasick_add_keyword(ahocorasick_t *ahocorasick, const char *str, size_t len, size_t output) {
 	if(!ahocorasick || !str) {
 		return false;
 	}
@@ -87,13 +87,14 @@ bool ahocorasick_add_keyword(ahocorasick_t *ahocorasick, char *str, size_t len, 
 	return ahocorasick_state_add_keyword(ahocorasick, 0, str, len, output);
 }
 
-bool ahocorasick_update_fail(ahocorasick_t *ahocorasick) {
+bool ahocorasick_finalize(ahocorasick_t *ahocorasick) {
 	if(!ahocorasick) {
 		return false;
 	}
 	
-	size_t i, k, *queue = NULL, read = 0, write = 0, state = 0, r = 0, s = 0;
+	size_t i, k, *queue = NULL, *fail = NULL, read = 0, write = 0, state = 0, r = 0, s = 0;
 	queue = calloc(ahocorasick->state_array_count, sizeof(ahocorasick->state_array[0].childs[0]));
+	fail = calloc(ahocorasick->state_array_count, sizeof(ahocorasick->state_array[0].childs[0]));
 	
 	for(i = 0; i < 256; i++) {
 		if(ahocorasick->state_array[0].childs[i]) {
@@ -112,36 +113,23 @@ bool ahocorasick_update_fail(ahocorasick_t *ahocorasick) {
 				queue[write] = s;
 				write++;
 				
-				state = STATE_GET(ahocorasick, r).fail;
-				while(state && !STATE_GET(ahocorasick, state).childs[i] && STATE_GET(ahocorasick, state).fail) {
-					state = STATE_GET(ahocorasick, state).fail;
+				state = fail[r];
+				while(state && !STATE_GET(ahocorasick, state).childs[i] && fail[state]) {
+					state = fail[state];
 				}
-				STATE_GET(ahocorasick, s).fail = STATE_GET(ahocorasick, state).childs[i];
-				for(k = 0; k < STATE_GET(ahocorasick, STATE_GET(ahocorasick, s).fail).output_array_count; k++) {
-					ahocorasick_state_add_output(ahocorasick, s, STATE_GET(ahocorasick, STATE_GET(ahocorasick, s).fail).output_array[k]);
+				fail[s] = STATE_GET(ahocorasick, state).childs[i];
+				
+				for(k = 0; k < STATE_GET(ahocorasick, fail[s]).output_array_count; k++) {
+					ahocorasick_state_add_output(ahocorasick, s, STATE_GET(ahocorasick, fail[s]).output_array[k]);
 				}
+			} else {
+				STATE_GET(ahocorasick, r).childs[i] = STATE_GET(ahocorasick, fail[r]).childs[i];
 			}
 		}
 	}
 	
+	free(fail);
 	free(queue);
-	
-	return true;
-}
-
-bool ahocorasick_finalize(ahocorasick_t *ahocorasick) {
-	if(!ahocorasick) {
-		return false;
-	}
-	
-	ahocorasick_update_fail(ahocorasick);
-
-/*	
-	size_t i;
-	for(i = 1; i < ahocorasick->state_array_count; i++) {
-		printf("i: %lu, f(i): %lu\n", i, ahocorasick->state_array[i].fail);
-	}
-*/
 
 	return true;
 }
@@ -160,6 +148,45 @@ bool ahocorasick_clean(ahocorasick_t *ahocorasick) {
 	ahocorasick->state_array_size = 0;
 	
 	return ahocorasick_init(ahocorasick);
+}
+
+bool ahocorasick_match_init(ahocorasick_match_t *match, const char *input, size_t len) {
+	if(!match || !len) {
+		return false;
+	}
+	
+	memset(match, 0, sizeof(*match));
+	
+	match->input = input;
+	match->len = len;
+	
+	return true;
+}
+
+bool ahocorasick_match(ahocorasick_t *ahocorasick, ahocorasick_match_t *match, size_t *output) {
+	if(!ahocorasick || !match) {
+		return false;
+	}
+	
+	if(match->len <= 0) {
+		return false;
+	}
+	
+	while(match->len > 0 && match->output >= ahocorasick->state_array[match->state].output_array_count) {
+		match->state = ahocorasick->state_array[match->state].childs[(uint8_t)match->input[0]];
+		match->output = 0;
+		match->input++;
+		match->len--;
+	}
+	
+	if(match->output < ahocorasick->state_array[match->state].output_array_count) {
+		if(output) {
+			*output = ahocorasick->state_array[match->state].output_array[match->output];
+		}
+		match->output++;
+		return true;
+	}
+	return false;
 }
 
 bool ahocorasick_to_dot(ahocorasick_t *ahocorasick, FILE *f) {

@@ -17,8 +17,12 @@ add_library(ahocorasick_static STATIC
 	src/ahocorasick.c
 )
 
-add_executable(test
-	src/main.c
+add_executable(test_original
+	tests/test_original.c
 )
-target_link_libraries(test ahocorasick)
+target_link_libraries(test_original ahocorasick)
 
+add_executable(test_wikipedia
+	tests/test_wikipedia.c
+)
+target_link_libraries(test_wikipedia ahocorasick)
